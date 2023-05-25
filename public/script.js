@@ -2,8 +2,9 @@
 References:
 1. Socket.io: https://socket.io/docs/v3/broadcasting-events/
 2. Simple Peer-to-Peer peer.js: https://peerjs.com/
-2.1 Install peer.js: [sudo] npm i -g peer
-3. 
+2.0 Install peer.js: [sudo] npm i -g peer
+2.1 Run peer.js env: peerjs --port 3001
+3. Host Calling with callerId MetaData: https://stackoverflow.com/questions/63663568/how-do-i-set-metadata-in-the-peerjs-peer-callid-stream-options-function#:~:text=for%20calling%20a%20remote%20peer%20in%20normal%20way%20without%20metadata%20we%20have%3A
 
 */
 
@@ -26,11 +27,18 @@ navigator.mediaDevices
     addVideoStream(myVideo, stream);
 
     myPeer.on("call", (call) => {
+      //   console.log(call.metadata.callerId);
       call.answer(stream);
       const video = document.createElement("video");
       call.on("stream", (userVideoStream) => {
         addVideoStream(video, userVideoStream);
       });
+      console.log("answering to host calling");
+      call.on("close", () => {
+        video.remove();
+      });
+      console.log("on close set");
+      peers[call.metadata.callerId] = call;
     });
 
     socket.on("user-connected", (userId) => {
@@ -40,7 +48,10 @@ navigator.mediaDevices
 
 socket.on("user-disconnected", (userId) => {
   //   console.log(userId);
-  if (peers[userId]) peers[userId].close();
+  if (peers[userId]) {
+    peers[userId].close();
+    delete peers[userId];
+  }
 });
 
 myPeer.on("open", (id) => {
@@ -52,7 +63,8 @@ myPeer.on("open", (id) => {
 // });
 
 function connectToNewUser(userId, stream) {
-  const call = myPeer.call(userId, stream);
+  const options = { metadata: { callerId: myPeer.id } };
+  const call = myPeer.call(userId, stream, options);
   const video = document.createElement("video");
   call.on("stream", (userVideoStream) => {
     addVideoStream(video, userVideoStream);
